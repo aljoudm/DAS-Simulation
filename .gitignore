@@ -1,0 +1,14 @@
+# MATLAB
+*.asv
+*.m~
+*.mex*
+slprj/
+octave-workspace
+
+# Large video (exceeds GitHub's 100 MB limit) — the .mp4 version is kept
+results/*.avi
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
