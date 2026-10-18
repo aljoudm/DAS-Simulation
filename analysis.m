@@ -96,7 +96,13 @@ if RUN(2)
     title('Resolution vs SNR trade-off');
     subplot(1,2,2);
     yyaxis left;  plot(x, S2.fad, '-o', 'LineWidth', 1.5); ylabel('positions with SNR < 10 dB [%]');
-    yyaxis right; plot(x, S2.corr, '-', 'LineWidth', 1.2); ylabel('correlation'); ylim([0 1.05]);
+    yyaxis right; hc = plot(x, S2.corr, '-s', 'LineWidth', 1.4, 'MarkerSize', 5);
+    ylabel('correlation'); ylim([0 1.05]);
+    cols = lines(numel(hc) + 1);            % row 1 = fading curve (left axis)
+    for ic = 1:numel(hc)                    % yyaxis paints every line the axis colour,
+        hc(ic).Color = cols(ic + 1, :);     % so give each event its own colour
+        hc(ic).MarkerFaceColor = cols(ic + 1, :);
+    end
     set(gca, 'XScale', 'log'); xticks(x); grid on; xlabel('pulse width [ns]');
     legend([{'fading %'}, names], 'Location', 'southeast');
     title('Fading and recovery quality vs pulse width');
