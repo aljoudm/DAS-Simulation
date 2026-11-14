@@ -2,7 +2,7 @@
 %
 %   Run from the DAS_Sim folder by typing:  main
 %
-%   Creates a folder "results" with:
+%   Creates a folder "results_febus" (src/results_dir.m) with:
 %     01_backscatter_trace.png    Rayleigh trace vs theory + speckle statistics
 %     02_amplitude_waterfall.png  raw and differential power (direct detection)
 %     03_phase_waterfall.png      recovered dL waterfall + event localization
@@ -14,7 +14,7 @@
 
 clear; clc; close all;
 addpath(fullfile(fileparts(mfilename('fullpath')), 'src'));   % model functions
-outdir = 'results';
+outdir = results_dir();
 if ~exist(outdir, 'dir'), mkdir(outdir); end
 nm = 1e9;
 

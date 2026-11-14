@@ -30,7 +30,7 @@ N_anim     = 7;         % pulses animated (1 = rest, 2..7 = vibrating)
 STEP_FIRST = 1.5;       % light travel per frame [m], first pulse (slow)
 STEP_NEXT  = 4;         % later pulses
 
-outdir = 'results';
+outdir = results_dir();
 if ~exist(outdir, 'dir'), mkdir(outdir); end
 
 %% ======================= physics =======================

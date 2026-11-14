@@ -31,7 +31,7 @@ fiber (Rayleigh scatterers) → pulse → backscatter trace → waterfall (many 
 | **Detector** | *Direct*: `Y = |E|² + n` (power only). *Coherent* (I/Q): `Y = E + n`. Noise is fixed by the SNR at the fiber start, so local SNR falls with distance and collapses at **fading** points. |
 | **Processing** | 1) reference removal `Y·conj(Y₁)` → 2) **gauge-length differential** over `G` metres → 3) amplitude-weighted averaging over one pulse (fading points get ~no weight) → 4) `ΔL = angle(Z)/k_strain`. |
 
-### Default system (`src/params.m`)
+### Previous (old-device) default system
 
 | Parameter | Value |
 |---|---|
@@ -44,18 +44,55 @@ fiber (Rayleigh scatterers) → pulse → backscatter trace → waterfall (many 
 | Gauge length | 20 m |
 | Recording | 2 s (2000 pulses), fixed random seed (42) |
 
-### Simulated events (`src/define_events.m`)
+### Simulated events (`src/define_events.m`, positions = 0.2 / 0.4 / 0.6 / 0.8 of the fibre length; km below for 20 km)
 
 | Event | Position | Signal |
 |---|---|---|
-| Sine (calibration) | 2 km | 100 Hz, 30 nm |
-| Walking | 4 km | ~1.8 steps/s, damped 30 Hz rings |
-| Digging | 6 km | strike every ~1.2 s, 120 Hz ring |
-| Vehicle | 8 km | slow pass envelope + 25 Hz engine vibration |
+| Sine (calibration) | 4 km | 100 Hz, 30 nm |
+| Walking | 8 km | ~1.8 steps/s, damped 30 Hz rings |
+| Digging | 12 km | strike every ~1.2 s, 120 Hz ring |
+| Vehicle | 16 km | slow pass envelope + 25 Hz engine vibration |
 
 ---
 
-## Results (default run)
+## FEBUS A1-NEO parameters
+
+Branch `febus-a1neo` simulates the **FEBUS A1-NEO** interrogator (FEBUS Optics datasheet, rev. 20260618).
+All values live in one file, `src/das_params.m` (struct `p`); `src/params.m` only maps them to the
+legacy `P.*` names used by the model. Outputs go to `results_febus/` (old-device `results/` is untouched).
+
+| Symbol | Value | Unit | Source |
+|---|---|---|---|
+| `lambda` | 1550e-9 | m | datasheet |
+| `alpha_dB_km` | 0.2 | dB/km | datasheet |
+| `L_fiber_sim` | 20e3 | m | datasheet (20 km range option) |
+| `dz_res` | 2 | m | datasheet (1–50 m, typ. 2 m) |
+| `dz_samp` | 2 | m | datasheet (typ. every 2 m) |
+| `P_DAS` | 170 | W | datasheet (not used by the simulation) |
+| `n_g` | 1.468 | – | assumed (group index of standard SMF at 1550 nm; needs citation) |
+| `c` | 299792458 | m/s | assumed (constant) |
+| `tau_pulse` | 19.6e-9 | s | derived |
+| `f_s` | 51e6 | Hz | derived |
+| `T_rt` | 196e-6 | s | derived |
+| `f_rep_max` | 5.1e3 | Hz | derived |
+| `f_rep` | 5e3 | Hz | chosen (must be `< f_rep_max`, enforced by `assert`) |
+| `f_vib_max` | 2.5e3 | Hz | derived (Nyquist, `f_rep/2`) |
+
+Parameters FEBUS does not specify (laser peak power `P0`, detector `SNR_dB`/`tau_ref`, gauge length,
+scatterer density, photoelastic factor `xi`, ...) keep their old values and are tagged
+`% NOT FROM FEBUS DATASHEET — old/assumed value` in `das_params.m`.
+
+Derivations (`n_g` = group index, `c` = speed of light):
+
+```
+tau_pulse = 2 * n_g * dz_res / c          (≈ 19.6 ns, so that  dz_res = c*tau_pulse / (2*n_g))
+f_s       = c / (2 * n_g * dz_samp)       (≈ 51 MHz, one sample every dz_samp metres of fibre)
+f_rep_max = 1 / T_rt = c / (2 * n_g * L)  (≈ 5.1 kHz for L = 20 km; pulses must not overlap)
+```
+
+Print the full table (name, value, unit, source) with `addpath('src'); das_params`.
+
+## Results (old-device default run, folder `results/`; FEBUS run is in `results_febus/`)
 
 | Event | Position error | Amplitude ratio | Correlation with truth |
 |---|---|---|---|

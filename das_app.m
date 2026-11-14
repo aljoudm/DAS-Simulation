@@ -47,13 +47,16 @@ left = uigridlayout(body, [4 1], 'RowHeight', {'fit', 'fit', 'fit', '1x'}, ...
                     'Padding', [0 0 0 0], 'RowSpacing', 8, 'BackgroundColor', C.bg);
 
 % ---- 1 event ----
+pdef = das_params;                                  % FEBUS defaults (single source of truth)
+Ls    = pdef.L_fiber_sim * [0.25 0.5 1];         % fibre-length choices [m]
+taus  = pdef.tau_pulse   * [1 2 5 10];           % pulse-width choices [s]
 g1 = section(left, '1   EVENT', 6);
 uilabel(g1, 'Text', 'Type of disturbance');
 ddType = uidropdown(g1, 'Items', {'Walking', 'Digging', 'Vehicle', 'Sine 100 Hz (calibration)'}, ...
     'ItemsData', {'walk', 'dig', 'vehicle', 'sine'}, 'Value', 'dig', ...
     'Tooltip', 'Each type has its own waveform, frequency content and stretched length w');
 lblPos = uilabel(g1, 'Text', '');
-slPos  = uislider(g1, 'Limits', [0.5 9.5], 'Value', 6, ...
+slPos  = uislider(g1, 'Limits', [0.5 pdef.L_fiber_sim/1e3 - 0.5], 'Value', 0.6*pdef.L_fiber_sim/1e3, ...
     'Tooltip', 'Distance of the event from the interrogator');
 lblA   = uilabel(g1, 'Text', '');
 slA    = uislider(g1, 'Limits', [5 300], 'Value', 80, 'MajorTicks', [5 100 200 300], ...
@@ -62,21 +65,21 @@ slA    = uislider(g1, 'Limits', [5 300], 'Value', 80, 'MajorTicks', [5 100 200 3
 % ---- 2 fiber & laser ----
 g2 = section(left, '2   FIBER & LASER', 5);
 uilabel(g2, 'Text', 'Fiber length');
-ddL = uidropdown(g2, 'Items', {'5 km', '10 km', '20 km'}, 'ItemsData', {5e3, 10e3, 20e3}, ...
-    'Value', 10e3, 'Tooltip', 'Longer fiber = more attenuation at the far end and lower max PRF');
+ddL = uidropdown(g2, 'Items', compose('%g km', Ls/1e3), 'ItemsData', num2cell(Ls), ...
+    'Value', pdef.L_fiber_sim, 'Tooltip', 'Longer fiber = more attenuation at the far end and lower max PRF');
 uilabel(g2, 'Text', 'Pulse width');
-ddTau = uidropdown(g2, 'Items', {'25 ns', '50 ns', '100 ns', '200 ns'}, ...
-    'ItemsData', {25e-9, 50e-9, 100e-9, 200e-9}, 'Value', 100e-9, ...
+ddTau = uidropdown(g2, 'Items', compose('%.1f ns', taus*1e9), ...
+    'ItemsData', num2cell(taus), 'Value', pdef.tau_pulse, ...
     'Tooltip', 'Shorter pulse = finer resolution but less light (lower SNR)');
 lblFib = uilabel(g2, 'Text', '', 'WordWrap', 'on', 'FontColor', C.acc, 'FontSize', 11);
 
 % ---- 3 detector & processing ----
 g3 = section(left, '3   DETECTOR & PROCESSING', 5);
 lblSNR = uilabel(g3, 'Text', '');
-slSNR  = uislider(g3, 'Limits', [5 40], 'Value', 30, ...
-    'Tooltip', 'Signal-to-noise ratio of the detector at the fiber start (100 ns pulse)');
+slSNR  = uislider(g3, 'Limits', [5 40], 'Value', pdef.SNR_dB, ...
+    'Tooltip', 'Signal-to-noise ratio of the detector at the fiber start (reference pulse tau_ref in das_params)');
 lblG   = uilabel(g3, 'Text', '');
-slG    = uislider(g3, 'Limits', [5 60], 'Value', 20, ...
+slG    = uislider(g3, 'Limits', [5 60], 'Value', pdef.gauge, ...
     'Tooltip', 'Phase is differenced over this length to isolate the local strain');
 lblGh  = uilabel(g3, 'Text', '', 'WordWrap', 'on', 'FontSize', 11);
 
@@ -342,7 +345,7 @@ update_design();
         lblStat.Text = 'Recording the video in a new window (do not resize it)...';
         drawnow;
         animate_das(opts);
-        lblStat.Text = 'Video saved in the results folder.';
+        lblStat.Text = 'Video saved in the results_febus folder.';
     end
 
 % ======================================================================

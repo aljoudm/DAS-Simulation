@@ -8,7 +8,7 @@
 %     3) detector SNR   -> when does detection fail?
 %     4) fiber length   -> performance at the far end of the fiber
 %
-%   Saves to folder "results":
+%   Saves to folder results_febus (see src/results_dir.m):
 %     07_study_gauge.png, 08_study_pulse.png, 09_study_snr.png,
 %     10_study_length.png, analysis_summary.txt, analysis.mat
 
@@ -17,7 +17,7 @@ addpath(fullfile(fileparts(mfilename('fullpath')), 'src'));   % model functions
 
 RUN = [1 1 1 1];            % [gauge  pulse  SNR  length]  1 = run, 0 = skip
 
-outdir = 'results';
+outdir = results_dir();
 if ~exist(outdir, 'dir'), mkdir(outdir); end
 nm   = 1e9;
 fid  = fopen(fullfile(outdir, 'analysis_summary.txt'), 'w');
@@ -64,16 +64,16 @@ if RUN(1)
 end
 
 %% ======================= STUDY 2: pulse width =======================
-% Full re-run for every pulse width. Gauge = max(20 m, 2 x resolution).
+% Full re-run for every pulse width. Gauge = max(default gauge, 2 x resolution).
 if RUN(2)
     fprintf('\n######## STUDY 2: pulse width ########\n');
-    x  = [25 50 100 200 400];                   % pulse widths [ns]
+    x  = das_params().tau_pulse*1e9 * [1 2 5 10 20];  % pulse widths [ns]: 1,2,5,10,20 x FEBUS pulse
     S2 = init_S(numel(x), 4);
     S2.res = zeros(numel(x),1); S2.gauge = zeros(numel(x),1);
     for k = 1:numel(x)
         ov       = struct('tau', x(k)*1e-9);
         P0       = params(ov);
-        ov.gauge = max(20, 2*P0.dz_res);
+        ov.gauge = max(P0.gauge, 2*P0.dz_res);
         P        = params(ov);
         F  = fiber_model(P);
         ev = define_events(P);
@@ -153,11 +153,14 @@ end
 if RUN(4)
     fprintf('\n######## STUDY 4: fiber length ########\n');
     x  = [5 10 20 30];                          % fiber length [km]
+    f_rep0 = das_params().f_rep;                % FEBUS PRR; lowered below if L is too long
     S4 = init_S(numel(x), 4);
     S4.prf_max = zeros(numel(x),1);
     for k = 1:numel(x)
         L  = x(k)*1e3;
-        ov = struct('L', L, 'Npulses', 1000, 'ev_z', L*[0.2 0.9 0.5 0.7]);
+        fmax = das_params(struct('L_fiber_sim', L, 'f_rep', 1)).f_rep_max;
+        ov = struct('L', L, 'Npulses', 1000, 'ev_z', L*[0.2 0.9 0.5 0.7], ...
+                    'PRF', min(f_rep0, 0.9*fmax));   % keep PRR < f_rep_max (pulses must not overlap)
         P  = params(ov);
         F  = fiber_model(P);
         ev = define_events(P);

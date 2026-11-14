@@ -1,0 +1,28 @@
+========== DAS SIMULATION SUMMARY ==========
+Fiber length          : 20.0 km
+Pulse width           : 20 ns  -> resolution 2.00 m
+PRF                   : 5000 Hz  -> max vibration 2500 Hz
+Recording             : 0.4 s (2000 pulses)
+Detector SNR at start : 30 dB
+Gauge length          : 20 m
+
+--- Backscatter model ---
+Backscatter at start  : -51.1 dBm
+mean(P/P_theory)      : 1.011  (theory 1)
+std/mean (speckle)    : 1.106  (theory 1)
+
+--- Fading ---
+Median local SNR      : 16.9 dB
+Positions SNR < 10 dB : 15.3 %
+Median phase noise    : 0.1015 rad
+
+--- Event recovery ---
+event                          pos err  amp ratio     corr
+Sine 100 Hz (calibration)       56.0 m       7.26   -0.039
+Walking                        -58.0 m       8.46    0.012
+Digging                         -6.0 m       5.72    0.106
+Vehicle                        -22.0 m       3.55    0.021
+
+Calibration sine      : 2032.5 Hz, 18.0 nm (injected 100 Hz, 30 nm)
+Background activity   : 18.79 nm rms
+============================================
