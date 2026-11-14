@@ -28,10 +28,10 @@
 
 ===== STUDY 4: fiber length [km] (bg/fading/SNR at far end) =====
    value    fade%      SNR corr_sine corr_walk  corr_dig corr_vehicle  amp_sine  amp_walk   amp_dig amp_vehicle    bg[nm]
-       5     1.07     31.2     0.995     0.995       NaN     0.999      0.90      1.02       Inf      0.71      1.55
-      10     1.07     29.6     0.998     0.976       NaN     0.983      1.02      1.04       Inf      0.59      1.90
-      20     2.07     25.6     0.998     0.971       NaN     0.984      0.99      1.01       Inf      0.82      3.03
-      30     4.45     21.9     0.998     0.899     0.994     0.990      0.99      1.04      1.02      0.73      4.46
+       5     1.07     31.2     0.995     0.989     0.982     0.998      0.90      1.04      1.02      0.71      1.53
+      10     1.07     29.6     0.998     0.942     0.994     0.981      1.02      1.07      1.00      0.58      1.90
+      20     2.07     25.6     0.998     0.944     0.975     0.979      0.99      1.03      1.07      0.81      3.03
+      30     4.45     21.9     0.998     0.793     0.986     0.989      0.99      1.10      1.01      0.73      4.48
 
 ===== STUDY 5: spatial resolution dz_res [m] =====
    value    fade%      SNR corr_sine corr_walk  corr_dig corr_vehicle  amp_sine  amp_walk   amp_dig amp_vehicle    bg[nm]

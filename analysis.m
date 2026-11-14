@@ -167,8 +167,10 @@ if RUN(4)
     for k = 1:numel(x)
         L  = x(k)*1e3;
         fmax = das_params(struct('L_fiber_sim', L, 'f_rep', 1)).f_rep_max;
-        ov = struct('L', L, 'Npulses', 1000, 'ev_z', L*[0.2 0.9 0.5 0.7], ...
-                    'PRF', min(f_rep0, 0.9*fmax));   % keep PRR < f_rep_max (pulses must not overlap)
+        prr  = min(f_rep0, 0.9*fmax);          % keep PRR < f_rep_max (pulses must not overlap)
+        npls = 2*round(das_params().T_rec_target*prr/2);   % same ~2 s record as main: all events (dig at 0.3 s) inside
+        ov = struct('L', L, 'Npulses', npls, 'ev_z', L*[0.2 0.9 0.5 0.7], ...
+                    'PRF', prr);
         P  = params(ov);
         F  = fiber_model(P);
         ev = define_events(P);
@@ -197,8 +199,8 @@ if RUN(4)
     for k = 1:4
         plot(x, S4.corr(:, k), stl{k}, 'Color', cl(k, :), 'LineWidth', lw(k), 'MarkerSize', msz(k));
     end
-    ylim([0.85 1.05]);          % zoomed: all curves are near 1 (axis starts at 0.85)
-    xlabel('fiber length [km]'); ylabel('correlation, recovered vs injected [-] (axis from 0.85)');
+    ylim([0.75 1.05]);          % zoomed: all curves are near 1 (axis starts at 0.75)
+    xlabel('fiber length [km]'); ylabel('correlation, recovered vs injected [-]');
     legend(strcat(names, {' @0.2L',' @0.9L',' @0.5L',' @0.7L'}), 'Location', 'southwest');
     panel_label(ax, '(b)');
     save_fig_hq(fig, outdir, '10_study_length');
