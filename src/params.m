@@ -22,7 +22,7 @@ if isempty(ov), ov = struct(); end
 %% ===================== split overrides =====================
 % legacy name -> das_params name
 map = struct('L','L_fiber_sim', 'n','n_g', 'PRF','f_rep', 'alpha_dB','alpha_dB_km', ...
-             'alpha_s_dB','alpha_s_dB_km', 'dz_res','dz_res', 'dz_samp','dz_samp', 'lambda','lambda', ...
+             'dz_res','dz_res', 'dz_samp','dz_samp', 'lambda','lambda', ...
              'xi','xi', 'scat_per_m','scat_per_m', 'P0','P0', 'pulse_shape','pulse_shape', ...
              'Npulses','Npulses', 'os','os', 'linewidth','linewidth', ...
              'seed','seed', 'gauge','gauge', 'c','c');
@@ -42,7 +42,6 @@ P.n           = p.n_g;               % group index
 P.alpha_dB    = p.alpha_dB_km;       % attenuation [dB/km]
 P.xi          = p.xi;
 P.scat_per_m  = p.scat_per_m;
-P.alpha_s_dB  = p.alpha_s_dB_km;
 P.S           = p.S_capture;
 P.lambda      = p.lambda;
 P.P0          = p.P0;
@@ -70,7 +69,7 @@ end
 %% ===================== DERIVED (do not edit) =====================
 P.vg        = P.c / P.n;                    % light speed in fiber [m/s]
 P.alpha     = P.alpha_dB / (10*log10(exp(1))) / 1e3;  % [Np/m] (power)
-P.alpha_s   = P.alpha_s_dB / (10*log10(exp(1))) / 1e3; % [1/m] (power)
+P.alpha_s   = P.alpha;                      % [1/m] only S*alpha_s matters (fixed by R_bs_dB in das_params)
 P.dz_res    = P.vg * P.tau / 2;             % spatial resolution [m]
 P.dz_adc    = P.vg / (2 * P.fs);            % distance per ADC sample [m]
 P.dz_fine   = P.dz_adc / P.os;              % physical simulation grid [m]

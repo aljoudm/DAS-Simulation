@@ -50,14 +50,13 @@ p.detection   = 'coherent'; % heterodyne, phase + amplitude  [ASSUMED: Zeng 2024
 p.P_noise_ref = 0.2e-9;   % coherent noise floor [W] = 10 dB SNR at ~2 nW, at B_ref  [ASSUMED: Thevenaz 2025]
 p.B_ref       = 100e6;    % reference bandwidth for P_noise_ref [Hz] (10 ns pulse)  [ASSUMED: Thevenaz 2025]
 p.T_rec_target = 2;       % target recording length [s]  [ASSUMED: project choice]
-% Old-device values with no source from FEBUS/literature (kept as they were):
-p.xi          = 0.78;     % photoelastic correction factor [-]   [ASSUMED: old device, no source]
-p.scat_per_m  = 5;        % Rayleigh scatterers per metre [1/m]  [ASSUMED: old device, no source]
-p.alpha_s_dB_km = 0.17;   % Rayleigh part of the loss [dB/km]    [ASSUMED: old device, no source]
-p.pulse_shape = 'rect';   % 'rect' or 'gauss'                    [ASSUMED: old device, no source]
-p.os          = 4;        % physical-grid oversampling [-]       [ASSUMED: old device, no source]
-p.seed        = 42;       % random seed                          [ASSUMED: old device, no source]
-p.gauge       = 20;       % gauge length [m]                     [ASSUMED: old device, no source]
+% Strain-optic factor and numerical modelling choices ([SIM SETTING] = not device/fibre properties):
+p.xi          = 0.78;     % strain-optic (photoelastic) factor [-]   [ASSUMED: He & Liu 2021, strain-optic coefficient K_eps ~ 0.78 for standard SMF]
+p.scat_per_m  = 5;        % Rayleigh scatterers per metre [1/m]  [SIM SETTING]
+p.pulse_shape = 'rect';   % 'rect' or 'gauss'                    [SIM SETTING]
+p.os          = 4;        % physical-grid oversampling [-]       [SIM SETTING]
+p.seed        = 42;       % random seed                          [SIM SETTING]
+p.gauge       = 20;       % gauge length [m]  [ASSUMED: old device, no source] (gauge = dz_res tested: clearly worse, see README)
 
 %% ----- source bookkeeping of the blocks above -----
 for nm = {'tau_pulse_febus','dz_res_febus','f_s_febus','f_rep_febus','P0_febus','linewidth_febus'}
@@ -73,15 +72,17 @@ src.detection    = 'ASSUMED: Zeng 2024';
 src.P_noise_ref  = 'ASSUMED: Thevenaz 2025';
 src.B_ref        = 'ASSUMED: Thevenaz 2025';
 src.T_rec_target = 'ASSUMED: project choice';
-for nm = {'xi','scat_per_m','alpha_s_dB_km','pulse_shape','os','seed','gauge'}
-    src.(nm{1}) = 'ASSUMED: old device, no source';
+src.xi = 'ASSUMED: He & Liu 2021 (K_eps ~ 0.78, std SMF)';
+src.gauge = 'ASSUMED: old device, no source';
+for nm = {'scat_per_m','pulse_shape','os','seed'}
+    src.(nm{1}) = 'SIM SETTING';
 end
 
 %% ----- Overrides of the inputs above (used by studies / GUI) -----
 ovn = fieldnames(ov);
 for i = 1:numel(ovn)
     k = ovn{i};
-    if strcmp(k, 'f_rep') || strcmp(k, 'Npulses'), continue; end   % handled below
+    if any(strcmp(k, {'f_rep', 'Npulses'})), continue; end   % handled below
     if ~isfield(p, k)
         error('das_params:unknown', 'Unknown or derived parameter "%s".', k);
     end
@@ -141,6 +142,7 @@ else
 end
 p.T_rec = p.Npulses / p.f_rep;  src.T_rec = 'DERIVED';
 
+
 % receiver noise (coherent): proportional to bandwidth (Palmieri 2013)
 p.B_rx    = 1/p.tau_pulse;                         % receiver bandwidth [Hz]
 p.P_noise = p.P_noise_ref * (p.B_rx/p.B_ref);      % [W]
@@ -148,14 +150,14 @@ src.B_rx = 'DERIVED';  src.P_noise = 'DERIVED: Palmieri 2013';
 
 % attenuation
 p.alpha_lin   = p.alpha_dB_km/(10*log10(exp(1)))/1e3;     % power [1/m]
-p.alpha_s_lin = p.alpha_s_dB_km/(10*log10(exp(1)))/1e3;   % [1/m]
-src.alpha_lin = 'DERIVED';  src.alpha_s_lin = 'DERIVED';
+src.alpha_lin = 'DERIVED';
 
 % Backscatter: R(tau) = 10^((R_bs_dB + 10log10(tau/1ns))/10)  (Corning)
 %   P_bs(z) = P0 * R(tau) * 10^(-2*alpha_dB_km*z/1e4)          (z in m)
-% The scatterer model uses P_bs0 = P0 * S * alpha_s * (v_g*tau/2), so the
-% capture fraction S is set to reproduce the Corning coefficient exactly:
-p.S_capture = 10^(p.R_bs_dB/10) / (1e-9 * p.alpha_s_lin * p.v_g/2);   % [-]
+% The scatterer model uses P_bs0 = P0 * S * alpha_s * (v_g*tau/2). Only the PRODUCT
+% S*alpha_s matters (alpha_s cancels), so alpha_s is taken equal to the total
+% attenuation alpha_lin and S is set to reproduce the Corning coefficient exactly:
+p.S_capture = 10^(p.R_bs_dB/10) / (1e-9 * p.alpha_lin * p.v_g/2);   % [-]
 src.S_capture = 'DERIVED: from R_bs_dB (Corning PI-1424)';
 p.R_bs_tau  = 10^((p.R_bs_dB + 10*log10(p.tau_pulse/1e-9))/10);       % [-]
 p.P_bs0     = p.P0 * p.R_bs_tau;                                      % backscatter at z=0 [W]

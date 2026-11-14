@@ -9,13 +9,13 @@ T = {   % name, unit
  'lambda','m';  'L_fiber_sim','m';  'alpha_dB_km','dB/km';  'dz_samp','m';  'dz_res','m'
  'P_DAS','W';  'n_g','-';  'R_bs_dB','dB';  'P0','W';  'linewidth','Hz';  'detection','-'
  'P_noise_ref','W';  'B_ref','Hz';  'T_rec_target','s'
- 'xi','-';  'scat_per_m','1/m';  'alpha_s_dB_km','dB/km';  'pulse_shape','-'
- 'os','-';  'seed','-';  'gauge','m'
+ 'xi','-';  'scat_per_m','1/m';  'pulse_shape','-'
+ 'os','-';  'seed','-'
  'c','m/s';  'v_g','m/s';  'tau_pulse','s';  'f_s','Hz';  'T_rt','s'
  'f_rep_max','Hz';  'f_rep','Hz';  'f_vib_max','Hz';  'Npulses','-';  'T_rec','s'
- 'B_rx','Hz';  'P_noise','W';  'alpha_lin','1/m';  'alpha_s_lin','1/m'
+ 'B_rx','Hz';  'P_noise','W';  'alpha_lin','1/m'
  'S_capture','-';  'R_bs_tau','-';  'P_bs0','W';  'SNR0_dB','dB'
- 'dz_adc','m';  'Nz','-';  'mem_GB','GB'
+ 'gauge','m';  'dz_adc','m';  'Nz','-';  'mem_GB','GB'
 };
 fprintf(fid, '\n%-16s %-12s %-7s %s\n', 'name', 'value', 'unit', 'source (final)');
 fprintf(fid, '%s\n', repmat('-', 1, 78));

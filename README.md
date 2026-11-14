@@ -91,9 +91,13 @@ spatial resolution (datasheet range 1–50 m; we choose `dz_res = 10 m`, as in Z
 | `P_noise` | 0.020e-9 | W | derived (∝ bandwidth, Palmieri 2013) |
 | `Npulses` | 9188 | – | derived (≈ 2 s recording) |
 
-Old-device values with no source (kept, tagged `[ASSUMED: old device, no source]`): `xi` (0.78),
-`scat_per_m` (5 /m), `alpha_s_dB_km` (0.17 dB/km), `pulse_shape` ('rect'), `os` (4), `seed` (42), `gauge` (20 m).
-The capture fraction `S` is no longer a guess: it is derived from `R_bs_dB`.
+Other tags: `xi` (0.78) is assumed from He & Liu 2021 (strain-optic coefficient K_ε ≈ 0.78 for standard SMF);
+`scat_per_m` (5 /m), `os` (4), `seed` (42) and `pulse_shape` ('rect') are `[SIM SETTING]` (numerical modelling
+choices, not device/fibre properties); `gauge` (20 m) keeps its old value, tagged `[ASSUMED: old device, no source]`.
+Setting `gauge = dz_res` was tested and is clearly worse (at 10 m the amplitude ratios drop to 0.4–0.8 and
+the 5 m case loses three of the four events), so the 20 m gauge is kept.
+The capture fraction `S` is no longer a guess: it is derived from `R_bs_dB` (only the product `S·α_s` enters the
+model, and it is fixed by the Corning coefficient, so the former separate Rayleigh-loss value is not needed).
 
 Equations (`n_g` group index, `c` speed of light):
 
@@ -109,6 +113,25 @@ SNR(z)    = P_bs(z) / P_noise
 
 Expected at the default settings: P_bs = 61.8 / 24.6 / 9.8 nW and SNR = 34.8 / 30.8 / 26.8 dB at 0 / 10 / 20 km.
 
+### Model limitations
+
+The simulator is a **theory / system-design tool**, not a digital twin of the FEBUS A1-NEO. It does NOT model:
+
+- **Laser phase noise / finite linewidth:** `linewidth` is carried in `das_params` but unused; fibre scatterers are
+  deterministic and the source is perfectly coherent over the fibre.
+- **Polarisation:** a single polarisation state; no polarisation fading or birefringence.
+- **Modulation instability and other nonlinear effects** (the 0.1 W peak power is taken from the literature, not checked).
+- **Real interrogator internals:** the actual pulse shape/extinction ratio, amplifier (EDFA) noise and ASE, photodetector
+  and ADC characteristics, local-oscillator frequency drift, and FEBUS's own signal processing (the noise floor is a
+  single bandwidth-scaled number, `P_noise`).
+- **Frequency drift / temperature** of the laser and fibre, and slow environmental drift of the Rayleigh fingerprint.
+- **Fibre imperfections:** splices, connectors, bends, reflective events and distributed loss variations (uniform 0.2 dB/km only).
+- **Realistic strain transfer:** cable coupling to the ground, anisotropic gauge response (broadside sensitivity) and
+  dispersion; the fibre section is stretched uniformly, ΔL → phase via a constant factor `xi`.
+- **Multiple channels / multiplexing** (one 20 km channel only) and **power consumption** (`P_DAS` is carried, not used).
+- **Fading mitigation beyond the simple amplitude-weighted averaging** (no frequency-diversity or multimode combining).
+- **Real vibration spectra:** events are synthetic (sine, walking, digging, vehicle), not field recordings.
+
 ### Sources
 
 1. FEBUS A1-NEO datasheet, rev. 20260618.
@@ -119,6 +142,7 @@ Expected at the default settings: P_bs = 61.8 / 24.6 / 9.8 nW and SNR = 34.8 / 3
 6. Juarez 2005.
 7. Palmieri 2013.
 8. Wang 2020.
+9. He & Liu 2021 (strain-optic coefficient).
 
 ## Results (old-device default run, folder `results/`; FEBUS run is in `results_febus/`)
 
