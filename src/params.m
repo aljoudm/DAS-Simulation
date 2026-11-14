@@ -1,54 +1,67 @@
 function P = params(ov)
-% PARAMS  All parameters of the DAS (phi-OTDR) simulation in one place.
+% PARAMS  Legacy-named parameter struct P used by every simulation file.
+%
+%   All device / fibre / signal VALUES now come from das_params.m (FEBUS
+%   A1-NEO). This file only maps those values to the legacy field names
+%   (P.L, P.n, P.tau, P.fs, P.PRF, ...) and computes model quantities.
 %
 %   P = params()     returns a struct P used by every other file.
 %   P = params(ov)   same, but first overrides INPUT fields with struct ov,
 %                    e.g. params(struct('tau', 50e-9)), so DERIVED values
-%                    are recomputed correctly (used by analysis.m)
+%                    are recomputed correctly (used by analysis.m).
+%                    Legacy names L, n, PRF, alpha_dB, ... are accepted and
+%                    forwarded to das_params; tau and fs override the
+%                    derived FEBUS values directly.
 %   params           (no output) prints a summary of the system.
 %
-%   Edit the INPUT sections only. The DERIVED section is computed
-%   automatically and must not be edited by hand.
+%   Do NOT put numeric values here: edit das_params.m instead.
 
-%% ===================== INPUT: physical constants =====================
-P.c = 299792458;            % speed of light in vacuum [m/s]
+if nargin < 1, ov = []; end
+if isempty(ov), ov = struct(); end
 
-%% ===================== INPUT: fiber =====================
-P.L          = 10e3;        % fiber length [m]
-P.n          = 1.468;       % refractive index of the core (SMF-28 @1550nm)
-P.alpha_dB   = 0.2;         % attenuation [dB/km]
-P.xi         = 0.78;        % photoelastic correction factor (strain -> phase)
-P.scat_per_m = 5;           % Rayleigh scatterers per meter (random positions)
-P.alpha_s_dB = 0.17;        % Rayleigh scattering part of the loss [dB/km]
-P.S          = 1e-3;        % capture fraction: share of scattered light guided back
-
-%% ===================== INPUT: laser & pulse =====================
-P.lambda      = 1550e-9;    % wavelength [m]
-P.P0          = 100e-3;     % peak pulse power [W]
-P.tau         = 100e-9;     % pulse width [s]  -> sets spatial resolution
-P.pulse_shape = 'rect';     % 'rect' or 'gauss' (gauss: tau = FWHM)
-
-%% ===================== INPUT: acquisition =====================
-P.fs      = 100e6;          % ADC sampling rate [Hz]  (fast time)
-P.PRF     = 1e3;            % pulse repetition frequency [Hz] (slow time)
-P.Npulses = 2000;           % number of pulses (traces) to simulate
-P.os      = 4;              % oversampling of the physical grid vs ADC grid
-P.SNR_dB  = 30;             % detector SNR at fiber start [dB] ...
-P.tau_ref = 100e-9;         % ... for a pulse of this width (fixes the noise level)
-P.seed    = 42;             % random seed -> same fiber every run
-
-%% ===================== INPUT: processing =====================
-P.gauge   = 20;             % gauge length [m]: phase is differenced over this
-
-%% ===================== INPUT: scenario =====================
-P.ev_z    = [];             % optional event positions [m]; [] = use define_events
-
-%% ===================== overrides (from params(ov)) =====================
-if nargin > 0 && ~isempty(ov)
-    fn = fieldnames(ov);
-    for i = 1:numel(fn)
-        P.(fn{i}) = ov.(fn{i});
+%% ===================== split overrides =====================
+% legacy name -> das_params name
+map = struct('L','L_fiber_sim', 'n','n_g', 'PRF','f_rep', 'alpha_dB','alpha_dB_km', ...
+             'alpha_s_dB','alpha_s_dB_km', 'S','S_capture', 'lambda','lambda', ...
+             'xi','xi', 'scat_per_m','scat_per_m', 'P0','P0', 'pulse_shape','pulse_shape', ...
+             'Npulses','Npulses', 'os','os', 'SNR_dB','SNR_dB', 'tau_ref','tau_ref', ...
+             'seed','seed', 'gauge','gauge', 'c','c');
+ov_p = struct();  ov_P = struct();
+fn = fieldnames(ov);
+for i = 1:numel(fn)
+    if isfield(map, fn{i}),  ov_p.(map.(fn{i})) = ov.(fn{i});
+    else,                    ov_P.(fn{i})       = ov.(fn{i});   % tau, fs, ev_z, ...
     end
+end
+
+%% ===================== INPUT values (from das_params) =====================
+p = das_params(ov_p);
+P.c           = p.c;                 % speed of light [m/s]
+P.L           = p.L_fiber_sim;       % fiber length [m]
+P.n           = p.n_g;               % group index
+P.alpha_dB    = p.alpha_dB_km;       % attenuation [dB/km]
+P.xi          = p.xi;
+P.scat_per_m  = p.scat_per_m;
+P.alpha_s_dB  = p.alpha_s_dB_km;
+P.S           = p.S_capture;
+P.lambda      = p.lambda;
+P.P0          = p.P0;
+P.tau         = p.tau_pulse;         % pulse width [s]  -> sets spatial resolution
+P.pulse_shape = p.pulse_shape;
+P.fs          = p.f_s;               % ADC sampling rate [Hz]
+P.PRF         = p.f_rep;             % pulse repetition frequency [Hz]
+P.Npulses     = p.Npulses;
+P.os          = p.os;
+P.SNR_dB      = p.SNR_dB;
+P.tau_ref     = p.tau_ref;
+P.seed        = p.seed;
+P.gauge       = p.gauge;
+P.ev_z        = [];                  % optional event positions [m]; [] = use define_events
+
+%% ===================== direct overrides (tau, fs, ev_z, ...) =====================
+fn = fieldnames(ov_P);
+for i = 1:numel(fn)
+    P.(fn{i}) = ov_P.(fn{i});
 end
 
 %% ===================== DERIVED (do not edit) =====================

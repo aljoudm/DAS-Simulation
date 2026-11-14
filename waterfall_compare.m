@@ -15,7 +15,7 @@
 
 clear; clc; close all;
 addpath(fullfile(fileparts(mfilename('fullpath')), 'src'));   % model functions
-outdir = 'results';
+outdir = results_dir();
 if ~exist(outdir, 'dir'), mkdir(outdir); end
 nm = 1e9;
 
