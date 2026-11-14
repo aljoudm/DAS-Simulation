@@ -1,0 +1,6 @@
+function panel_label(ax, str)
+% PANEL_LABEL  Bold panel label such as "(a)" in the top-left corner of axes ax.
+text(ax, 0.012, 0.975, str, 'Units', 'normalized', 'FontWeight', 'bold', ...
+     'VerticalAlignment', 'top', 'HorizontalAlignment', 'left', ...
+     'BackgroundColor', [1 1 1 0.8], 'Margin', 1.5, 'Clipping', 'on');
+end

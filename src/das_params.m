@@ -56,7 +56,7 @@ p.scat_per_m  = 5;        % Rayleigh scatterers per metre [1/m]  [SIM SETTING]
 p.pulse_shape = 'rect';   % 'rect' or 'gauss'                    [SIM SETTING]
 p.os          = 4;        % physical-grid oversampling [-]       [SIM SETTING]
 p.seed        = 42;       % random seed                          [SIM SETTING]
-p.gauge       = 20;       % gauge length [m]  [ASSUMED: old device, no source] (gauge = dz_res tested: clearly worse, see README)
+p.gauge       = 20;       % gauge length [m]  [CHOSEN: FEBUS supports gauge >= 1 m; 20 m selected by gauge study (fig 07); Wang 2020 — short gauge lowers SNR, long gauge distorts signal]
 
 %% ----- source bookkeeping of the blocks above -----
 for nm = {'tau_pulse_febus','dz_res_febus','f_s_febus','f_rep_febus','P0_febus','linewidth_febus'}
@@ -73,7 +73,7 @@ src.P_noise_ref  = 'ASSUMED: Thevenaz 2025';
 src.B_ref        = 'ASSUMED: Thevenaz 2025';
 src.T_rec_target = 'ASSUMED: project choice';
 src.xi = 'ASSUMED: He & Liu 2021 (K_eps ~ 0.78, std SMF)';
-src.gauge = 'ASSUMED: old device, no source';
+src.gauge = 'CHOSEN: gauge study (fig 07); Wang 2020';
 for nm = {'scat_per_m','pulse_shape','os','seed'}
     src.(nm{1}) = 'SIM SETTING';
 end

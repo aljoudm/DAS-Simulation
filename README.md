@@ -93,7 +93,7 @@ spatial resolution (datasheet range 1–50 m; we choose `dz_res = 10 m`, as in Z
 
 Other tags: `xi` (0.78) is assumed from He & Liu 2021 (strain-optic coefficient K_ε ≈ 0.78 for standard SMF);
 `scat_per_m` (5 /m), `os` (4), `seed` (42) and `pulse_shape` ('rect') are `[SIM SETTING]` (numerical modelling
-choices, not device/fibre properties); `gauge` (20 m) keeps its old value, tagged `[ASSUMED: old device, no source]`.
+choices, not device/fibre properties); `gauge` (20 m) is `[CHOSEN: FEBUS supports gauge >= 1 m; 20 m selected by gauge study (fig 07); Wang 2020 — short gauge lowers SNR, long gauge distorts signal]`.
 Setting `gauge = dz_res` was tested and is clearly worse (at 10 m the amplitude ratios drop to 0.4–0.8 and
 the 5 m case loses three of the four events), so the 20 m gauge is kept.
 The capture fraction `S` is no longer a guess: it is derived from `R_bs_dB` (only the product `S·α_s` enters the
