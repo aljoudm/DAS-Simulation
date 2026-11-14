@@ -76,8 +76,8 @@ lblFib = uilabel(g2, 'Text', '', 'WordWrap', 'on', 'FontColor', C.acc, 'FontSize
 % ---- 3 detector & processing ----
 g3 = section(left, '3   DETECTOR & PROCESSING', 5);
 lblSNR = uilabel(g3, 'Text', '');
-slSNR  = uislider(g3, 'Limits', [5 40], 'Value', pdef.SNR_dB, ...
-    'Tooltip', 'Signal-to-noise ratio of the detector at the fiber start (reference pulse tau_ref in das_params)');
+slSNR  = uislider(g3, 'Limits', [5 40], 'Value', round(pdef.SNR0_dB), ...
+    'Tooltip', 'Signal-to-noise ratio of the detector at the fiber start for the selected pulse (default: from das_params noise model)');
 lblG   = uilabel(g3, 'Text', '');
 slG    = uislider(g3, 'Limits', [5 60], 'Value', pdef.gauge, ...
     'Tooltip', 'Phase is differenced over this length to isolate the local strain');

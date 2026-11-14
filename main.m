@@ -21,6 +21,7 @@ nm = 1e9;
 %% =================== 1) SETUP ===================
 P  = params;
 params;                                  % print system summary
+print_expected_signal(das_params);       % analytic backscatter power and SNR vs distance
 F  = fiber_model(P);
 ev = define_events(P);
 Ne = numel(ev);

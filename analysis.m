@@ -2,7 +2,7 @@
 %
 %   Run from the DAS_Sim folder by typing:  analysis
 %
-%   Four studies (choose which to run with RUN below):
+%   Five studies (choose which to run with RUN below; 5 = spatial resolution):
 %     1) gauge length   -> captured event amplitude vs noise / localization
 %     2) pulse width    -> spatial resolution vs SNR
 %     3) detector SNR   -> when does detection fail?
@@ -15,14 +15,14 @@
 clear; clc; close all;
 addpath(fullfile(fileparts(mfilename('fullpath')), 'src'));   % model functions
 
-RUN = [1 1 1 1];            % [gauge  pulse  SNR  length]  1 = run, 0 = skip
+RUN = [1 1 1 1 1];          % [gauge  pulse  SNR  length  resolution]  1 = run, 0 = skip
 
 outdir = results_dir();
 if ~exist(outdir, 'dir'), mkdir(outdir); end
 nm   = 1e9;
 fid  = fopen(fullfile(outdir, 'analysis_summary.txt'), 'w');
 tAll = tic;
-S1 = []; S2 = []; S3 = []; S4 = [];
+S1 = []; S2 = []; S3 = []; S4 = []; S5 = [];
 
 %% ======================= STUDY 1: gauge length =======================
 % Simulate once, then re-process the SAME data with different gauges.
@@ -67,7 +67,7 @@ end
 % Full re-run for every pulse width. Gauge = max(default gauge, 2 x resolution).
 if RUN(2)
     fprintf('\n######## STUDY 2: pulse width ########\n');
-    x  = das_params().tau_pulse*1e9 * [1 2 5 10 20];  % pulse widths [ns]: 1,2,5,10,20 x FEBUS pulse
+    x  = das_params().tau_pulse*1e9 * [0.2 0.5 1 2 4];  % pulse widths [ns]: 0.2..4 x FEBUS pulse
     S2 = init_S(numel(x), 4);
     S2.res = zeros(numel(x),1); S2.gauge = zeros(numel(x),1);
     for k = 1:numel(x)
@@ -193,8 +193,46 @@ if RUN(4)
 end
 
 %% ======================= save =======================
+%% ======================= STUDY 5: spatial resolution dz_res =======================
+% Full re-run for dz_res = 2, 5, 10, 20 m (pulse width follows: tau = 2 n_g dz_res / c;
+% noise follows B_rx = 1/tau). Gauge = max(default gauge, 2 x resolution).
+if RUN(5)
+    fprintf('\n######## STUDY 5: spatial resolution ########\n');
+    x  = [2 5 10 20];                           % spatial resolution [m]
+    S5 = init_S(numel(x), 4);
+    for k = 1:numel(x)
+        ov       = struct('dz_res', x(k));
+        P0       = params(ov);
+        ov.gauge = max(P0.gauge, 2*P0.dz_res);
+        P        = params(ov);
+        F  = fiber_model(P);
+        ev = define_events(P);
+        W  = simulate_waterfall(P, F, ev);
+        Dc = detector(P, W, 'coherent');
+        [fad, snr] = fading_metrics(W, Dc, true(P.Nz,1));
+        clear W
+        R  = process_das(P, Dc);  clear Dc
+        S5 = store(S5, k, event_metrics(ev, R), fad, snr);
+        clear R
+    end
+    names = {ev.type};
+
+    fig = figure('Name','Study 5: spatial resolution','Position',[50 50 1100 430]);
+    subplot(1,2,1);
+    yyaxis left;  plot(x, S5.snr, '-o', 'LineWidth', 1.5); ylabel('median local SNR [dB]');
+    yyaxis right; plot(x, S5.fad, '-s', 'LineWidth', 1.5); ylabel('positions with SNR < 10 dB [%]');
+    xticks(x); grid on; xlabel('spatial resolution \Deltaz [m]');
+    subplot(1,2,2);
+    plot(x, S5.corr, '-o', 'LineWidth', 1.5); ylim([-0.1 1.05]);
+    xticks(x); grid on; xlabel('spatial resolution \Deltaz [m]');
+    ylabel('correlation with injected signal [-]');
+    legend(names, 'Location', 'southeast');
+    save_fig_hq(fig, outdir, '13_study_resolution');     % png 300 dpi + pdf, no title
+    write_table(fid, 'STUDY 5: spatial resolution dz_res [m]', x, S5, names);
+end
+
 fclose(fid);
-save(fullfile(outdir, 'analysis.mat'), 'S1', 'S2', 'S3', 'S4');
+save(fullfile(outdir, 'analysis.mat'), 'S1', 'S2', 'S3', 'S4', 'S5');
 fprintf('\nAnalysis done in %.0f s. Results in folder "%s"\n', toc(tAll), outdir);
 
 %% ======================= local functions =======================
@@ -256,4 +294,9 @@ function save_fig(fig, outdir, name)
     catch
         print(fig, file, '-dpng', '-r200');
     end
+end
+function save_fig_hq(fig, outdir, name)
+% Publication export: png at 300 dpi + vector pdf.
+    exportgraphics(fig, fullfile(outdir, [name '.png']), 'Resolution', 300);
+    exportgraphics(fig, fullfile(outdir, [name '.pdf']), 'ContentType', 'vector');
 end
