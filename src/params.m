@@ -22,9 +22,9 @@ if isempty(ov), ov = struct(); end
 %% ===================== split overrides =====================
 % legacy name -> das_params name
 map = struct('L','L_fiber_sim', 'n','n_g', 'PRF','f_rep', 'alpha_dB','alpha_dB_km', ...
-             'alpha_s_dB','alpha_s_dB_km', 'S','S_capture', 'lambda','lambda', ...
+             'dz_res','dz_res', 'dz_samp','dz_samp', 'lambda','lambda', ...
              'xi','xi', 'scat_per_m','scat_per_m', 'P0','P0', 'pulse_shape','pulse_shape', ...
-             'Npulses','Npulses', 'os','os', 'SNR_dB','SNR_dB', 'tau_ref','tau_ref', ...
+             'Npulses','Npulses', 'os','os', 'linewidth','linewidth', ...
              'seed','seed', 'gauge','gauge', 'c','c');
 ov_p = struct();  ov_P = struct();
 fn = fieldnames(ov);
@@ -42,7 +42,6 @@ P.n           = p.n_g;               % group index
 P.alpha_dB    = p.alpha_dB_km;       % attenuation [dB/km]
 P.xi          = p.xi;
 P.scat_per_m  = p.scat_per_m;
-P.alpha_s_dB  = p.alpha_s_dB_km;
 P.S           = p.S_capture;
 P.lambda      = p.lambda;
 P.P0          = p.P0;
@@ -52,8 +51,8 @@ P.fs          = p.f_s;               % ADC sampling rate [Hz]
 P.PRF         = p.f_rep;             % pulse repetition frequency [Hz]
 P.Npulses     = p.Npulses;
 P.os          = p.os;
-P.SNR_dB      = p.SNR_dB;
-P.tau_ref     = p.tau_ref;
+P.P_noise     = p.P_noise;          % receiver noise power [W] (coherent, scales with 1/tau)
+P.detection   = p.detection;
 P.seed        = p.seed;
 P.gauge       = p.gauge;
 P.ev_z        = [];                  % optional event positions [m]; [] = use define_events
@@ -63,11 +62,14 @@ fn = fieldnames(ov_P);
 for i = 1:numel(fn)
     P.(fn{i}) = ov_P.(fn{i});
 end
+if isfield(ov_P, 'tau') && ~isfield(ov_P, 'P_noise')
+    P.P_noise = p.P_noise_ref * (1/P.tau) / p.B_ref;   % noise ∝ bandwidth = 1/tau (Palmieri 2013)
+end
 
 %% ===================== DERIVED (do not edit) =====================
 P.vg        = P.c / P.n;                    % light speed in fiber [m/s]
 P.alpha     = P.alpha_dB / (10*log10(exp(1))) / 1e3;  % [Np/m] (power)
-P.alpha_s   = P.alpha_s_dB / (10*log10(exp(1))) / 1e3; % [1/m] (power)
+P.alpha_s   = P.alpha;                      % [1/m] only S*alpha_s matters (fixed by R_bs_dB in das_params)
 P.dz_res    = P.vg * P.tau / 2;             % spatial resolution [m]
 P.dz_adc    = P.vg / (2 * P.fs);            % distance per ADC sample [m]
 P.dz_fine   = P.dz_adc / P.os;              % physical simulation grid [m]
@@ -90,7 +92,13 @@ P.t_slow  = (0:P.Npulses-1) / P.PRF;        % slow-time axis [s]
 P.T_rec   = P.Npulses / P.PRF;              % recording duration [s]
 
 % Memory estimate for the final complex waterfall (double precision)
-P.mem_GB  = P.Nz * P.Npulses * 16 / 1e9;
+P.mem_GB  = P.Nz * P.Npulses * 8 / 1e9;          % single-precision complex waterfall
+
+% Backscatter at z = 0 and SNR. SNR_dB is only an override knob (studies, GUI):
+% it sets the noise so that SNR at the fibre start equals SNR_dB.
+P.P_bs0 = P.P0 * P.S * P.alpha_s * P.dz_res;
+if isfield(ov_P, 'SNR_dB'), P.P_noise = P.P_bs0 / 10^(ov_P.SNR_dB/10); end
+P.SNR_dB = 10*log10(P.P_bs0 / P.P_noise);          % SNR at fibre start [dB]
 
 %% ===================== sanity checks =====================
 if P.PRF > P.PRF_max

@@ -11,7 +11,7 @@
 %     row 3  |dL|                  (phase-based, coherent detection)
 %   Figure 2: zoom +-100 m around each event, signed dL [nm]
 %
-%   Saves 11_waterfall_baseline_vs_events.png and 12_waterfall_zoom.png
+%   Saves 11_waterfall_baseline_vs_events and 12_waterfall_zoom (png 300 dpi + pdf)
 
 clear; clc; close all;
 addpath(fullfile(fileparts(mfilename('fullpath')), 'src'));   % model functions
@@ -51,60 +51,68 @@ zb  = P.z (round(blk/2) : blk : floor(P.Nz/blk)*blk) / 1e3;
 zbR = Re.z(round(blk/2) : blk : floor(numel(Re.z)/blk)*blk) / 1e3;
 t   = P.t_slow;
 
-%% ===================== Figure 1: full fiber =====================
-fig1 = figure('Name','Baseline vs events','Position',[40 30 1150 900]);
+%% ===================== Figure 1: full fiber + zoom on each event =====================
+% Same data as before; presentation only (report style, png 300 dpi + pdf).
+fig_style();
+lett = {'(a)','(b)','(c)','(d)','(e)','(f)','(g)','(h)','(i)','(j)'};
+fig1 = figure('Name','Baseline vs events','Position',[40 30 1100 1150]);
+tl   = tiledlayout(4, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 
 rows = { ...
   {10*log10(poolmean(rawb).'/1e-3), 10*log10(poolmean(rawe).'/1e-3), zb,  t,        [-60 -40], 'raw power [dBm]'}, ...
-  {10*log10(poolmax(difb).'/1e-9),  10*log10(poolmax(dife).'/1e-9),  zb,  t(2:end), [-15 15],  '|P_{m+1}-P_m| [dB re 1 nW]'}, ...
-  {poolmax(abs(Rb.dL)).'*nm,        poolmax(abs(Re.dL)).'*nm,        zbR, t,        [0 60],    '|dL| [nm] (phase)'} };
-hdr = {'BASELINE (no events)', 'WITH EVENTS'};
+  {10*log10(poolmax(difb).'/1e-9),  10*log10(poolmax(dife).'/1e-9),  zb,  t(2:end), [-15 15],  '|P_{m+1} - P_m| [dB re 1 nW]'}, ...
+  {poolmax(abs(Rb.dL)).'*nm,        poolmax(abs(Re.dL)).'*nm,        zbR, t,        [0 60],    'peak |\DeltaL| [nm]'} };
+hdr = {'baseline (no events)', 'with events'};
 
 for r = 1:3
+    nest = tiledlayout(tl, 1, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
+    nest.Layout.Tile = r;
     for c = 1:2
-        subplot(3, 2, (r-1)*2 + c);
-        imagesc(rows{r}{3}, rows{r}{4}, rows{r}{c});
-        axis xy; colorbar; clim(rows{r}{5});
-        xlabel('distance [km]'); ylabel('time [s]');
-        title(sprintf('%s: %s', hdr{c}, rows{r}{6}));
-        if c == 2 && r > 1
-            for i = 1:Ne
-                text(ev(i).z0/1e3 + 0.15, t(end)*0.93, ev(i).type, ...
-                     'Color', 'w', 'FontWeight', 'bold');
-            end
-        end
+        ax = nexttile(nest);
+        imagesc(ax, rows{r}{3}, rows{r}{4}, rows{r}{c});
+        axis(ax, 'xy'); clim(ax, rows{r}{5}); grid(ax, 'off');
+        xlabel(ax, 'distance [km]');
+        if c == 1, ylabel(ax, 'time [s]'); else, set(ax, 'YTickLabel', []); end
+        if c == 2, hold(ax, 'on'); mark_events(ax, ev, rows{r}{4}(end), r > 1); end
+        panel_label(ax, sprintf('%s %s', lett{2*r-2+c}, hdr{c}));
     end
+    cb = colorbar(ax); cb.Layout.Tile = 'east'; cb.Label.String = rows{r}{6};   % one colour scale per row
 end
-save_fig(fig1, outdir, '11_waterfall_baseline_vs_events');
-clear rawb rawe difb dife
+Zs = cell(1, Ne); zw = cell(1, Ne);
+for i = 1:Ne
+    win   = abs(Re.z(:) - ev(i).z0) <= 100;
+    zw{i} = Re.z(win) - ev(i).z0;
+    Zs{i} = abs(double(Re.dL(win, :))).' * nm;
+end
+plot_event_zooms(tl, 4, Zs, zw, t, ev, [0 60], [], '|\DeltaL| [nm]', lett(7:10));
+save_fig_hq(fig1, outdir, '11_waterfall_baseline_vs_events');
+clear rawb rawe difb dife Zs
 
 %% ===================== Figure 2: zoom on each event =====================
-% Signed dL with a blue-white-red map: shows the oscillation itself
+% Signed dL with a blue-white-red map: shows the oscillation itself.
+% ONE colour scale for all rows (same units), set by the largest injected amplitude.
 cmap = [linspace(0,1,128)' linspace(0,1,128)' ones(128,1);
         ones(128,1) linspace(1,0,128)' linspace(1,0,128)'];
+lim  = ceil(max(arrayfun(@(e) max(abs(e.dL)), ev))*nm/10)*10;
 
-fig2 = figure('Name','Zoom on events','Position',[60 30 1100 950]);
+fig2 = figure('Name','Zoom on events','Position',[60 30 1000 1000]);
+tl2  = tiledlayout(Ne, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
 for i = 1:Ne
     win = abs(Re.z - ev(i).z0) <= 100;
     zw  = Re.z(win) - ev(i).z0;                     % distance from event [m]
-    lim = max(20, ceil(max(abs(ev(i).dL))*nm/10)*10);
-
-    subplot(Ne, 2, 2*i-1);
-    imagesc(zw, t, Rb.dL(win, :).' * nm);
-    axis xy; colorbar; clim([-lim lim]); colormap(gca, cmap);
-    ylabel('time [s]');
-    title(sprintf('BASELINE @ %.0f m', ev(i).z0));
-
-    subplot(Ne, 2, 2*i);
-    imagesc(zw, t, Re.dL(win, :).' * nm);
-    axis xy; colorbar; clim([-lim lim]); colormap(gca, cmap);
-    title(sprintf('%s @ %.0f m', ev(i).name, ev(i).z0));
-    if i == Ne
-        subplot(Ne, 2, 2*i-1); xlabel('distance from event [m]');
-        subplot(Ne, 2, 2*i);   xlabel('distance from event [m]');
+    for c = 1:2
+        ax = nexttile(tl2);
+        if c == 1, D = Rb.dL(win, :); lbl = 'baseline'; else, D = Re.dL(win, :); lbl = ev(i).type; end
+        imagesc(ax, zw, t, D.' * nm);
+        axis(ax, 'xy'); clim(ax, [-lim lim]); colormap(ax, cmap); grid(ax, 'off');
+        xticks(ax, -100:50:100);
+        if c == 1, ylabel(ax, 'time [s]'); else, set(ax, 'YTickLabel', []); end
+        if i == Ne, xlabel(ax, 'distance from event [m]'); else, set(ax, 'XTickLabel', []); end
+        panel_label(ax, sprintf('(%c) %s, %.0f km', char(96 + 2*i - 2 + c), lbl, ev(i).z0/1e3));
     end
 end
-save_fig(fig2, outdir, '12_waterfall_zoom');
+cb = colorbar(ax); cb.Layout.Tile = 'east'; cb.Label.String = '\DeltaL [nm]';
+save_fig_hq(fig2, outdir, '12_waterfall_zoom');
 
 %% ===================== detection margin =====================
 % Threshold = highest activity found ANYWHERE in the baseline:
@@ -123,12 +131,3 @@ falses = sum(Re.act > thr & all(abs(Re.z(:) - [ev.z0]) > 60, 2));
 fprintf('Positions above threshold away from events: %d (false alarms)\n', falses);
 fprintf('-------------------------------------------------------\n');
 
-%% ===================== local function =====================
-function save_fig(fig, outdir, name)
-    file = fullfile(outdir, [name '.png']);
-    try
-        exportgraphics(fig, file, 'Resolution', 200);
-    catch
-        print(fig, file, '-dpng', '-r200');
-    end
-end

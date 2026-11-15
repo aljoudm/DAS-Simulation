@@ -58,39 +58,91 @@ fiber (Rayleigh scatterers) → pulse → backscatter trace → waterfall (many 
 ## FEBUS A1-NEO parameters
 
 Branch `febus-a1neo` simulates the **FEBUS A1-NEO** interrogator (FEBUS Optics datasheet, rev. 20260618).
-All values live in one file, `src/das_params.m` (struct `p`); `src/params.m` only maps them to the
-legacy `P.*` names used by the model. Outputs go to `results_febus/` (old-device `results/` is untouched).
+All values live in one file, `src/das_params.m` (struct `p`); `src/params.m` only maps them to the legacy
+`P.*` names used by the model. Every line carries a source tag, and `das_params` (no output) prints the
+table *name | value | unit | final source*. Outputs go to `results_febus/` (old-device `results/` is untouched).
+
+> **When vendor data arrives, edit only the FEBUS overrides block** (`p.tau_pulse_febus`, `p.dz_res_febus`,
+> `p.f_s_febus`, `p.f_rep_febus`, `p.P0_febus`, `p.linewidth_febus`; `NaN` = not received yet).
+
+Note: the datasheet's "acoustic sensing typically every 2 m" is the **channel spacing** (`dz_samp`), not the
+spatial resolution (datasheet range 1–50 m; we choose `dz_res = 10 m`, as in Zeng 2024).
 
 | Symbol | Value | Unit | Source |
 |---|---|---|---|
 | `lambda` | 1550e-9 | m | datasheet |
+| `L_fiber_sim` | 20e3 | m | datasheet (20 km option) |
 | `alpha_dB_km` | 0.2 | dB/km | datasheet |
-| `L_fiber_sim` | 20e3 | m | datasheet (20 km range option) |
-| `dz_res` | 2 | m | datasheet (1–50 m, typ. 2 m) |
-| `dz_samp` | 2 | m | datasheet (typ. every 2 m) |
+| `dz_samp` | 2 | m | datasheet (channel spacing) |
+| `dz_res` | 10 | m | datasheet range 1–50 m; value assumed (Zeng 2024) |
 | `P_DAS` | 170 | W | datasheet (not used by the simulation) |
-| `n_g` | 1.468 | – | assumed (group index of standard SMF at 1550 nm; needs citation) |
-| `c` | 299792458 | m/s | assumed (constant) |
-| `tau_pulse` | 19.6e-9 | s | derived |
-| `f_s` | 51e6 | Hz | derived |
-| `T_rt` | 196e-6 | s | derived |
+| `n_g` | 1.4682 | – | assumed: Corning SMF-28 Ultra PI-1424 |
+| `R_bs_dB` | −82 | dB | assumed: Corning PI-1424 (1 ns pulse, 1550 nm) |
+| `P0` | 0.1 | W | assumed: Thevenaz 2025; MI limit, Liu 2016 |
+| `linewidth` | 3e3 | Hz | assumed: Zeng 2024; Juarez 2005 (documented, not used by the scatterer model) |
+| `detection` | coherent | – | assumed: Zeng 2024 |
+| `P_noise_ref`, `B_ref` | 0.2e-9, 100e6 | W, Hz | assumed: Thevenaz 2025 |
+| `tau_pulse` | 97.9e-9 | s | derived |
+| `f_s` | 51.05e6 | Hz | derived |
+| `T_rt` | 195.9e-6 | s | derived |
 | `f_rep_max` | 5.1e3 | Hz | derived |
-| `f_rep` | 5e3 | Hz | chosen (must be `< f_rep_max`, enforced by `assert`) |
-| `f_vib_max` | 2.5e3 | Hz | derived (Nyquist, `f_rep/2`) |
+| `f_rep` | 4.59e3 | Hz | derived (0.9 `f_rep_max`) |
+| `f_vib_max` | 2.3e3 | Hz | derived (Nyquist, Wang 2020) |
+| `P_noise` | 0.020e-9 | W | derived (∝ bandwidth, Palmieri 2013) |
+| `Npulses` | 9188 | – | derived (≈ 2 s recording) |
 
-Parameters FEBUS does not specify (laser peak power `P0`, detector `SNR_dB`/`tau_ref`, gauge length,
-scatterer density, photoelastic factor `xi`, ...) keep their old values and are tagged
-`% NOT FROM FEBUS DATASHEET — old/assumed value` in `das_params.m`.
+Other tags: `xi` (0.78) is assumed from He & Liu 2021 (strain-optic coefficient K_ε ≈ 0.78 for standard SMF);
+`scat_per_m` (5 /m), `os` (4), `seed` (42) and `pulse_shape` ('rect') are `[SIM SETTING]` (numerical modelling
+choices, not device/fibre properties); `gauge` (20 m) is `[CHOSEN: FEBUS supports gauge >= 1 m; 20 m selected by gauge study (fig 07); Wang 2020 — short gauge lowers SNR, long gauge distorts signal]`.
+Setting `gauge = dz_res` was tested and is clearly worse (at 10 m the amplitude ratios drop to 0.4–0.8 and
+the 5 m case loses three of the four events), so the 20 m gauge is kept.
+The capture fraction `S` is no longer a guess: it is derived from `R_bs_dB` (only the product `S·α_s` enters the
+model, and it is fixed by the Corning coefficient, so the former separate Rayleigh-loss value is not needed).
 
-Derivations (`n_g` = group index, `c` = speed of light):
+Equations (`n_g` group index, `c` speed of light):
 
 ```
-tau_pulse = 2 * n_g * dz_res / c          (≈ 19.6 ns, so that  dz_res = c*tau_pulse / (2*n_g))
-f_s       = c / (2 * n_g * dz_samp)       (≈ 51 MHz, one sample every dz_samp metres of fibre)
-f_rep_max = 1 / T_rt = c / (2 * n_g * L)  (≈ 5.1 kHz for L = 20 km; pulses must not overlap)
+tau_pulse = 2 n_g dz_res / c                       (≈ 98 ns; dz_res = c tau / (2 n_g), Liu 2016)
+f_s       = c / (2 n_g dz_samp)                    (≈ 51 MHz, ~5 samples per pulse)
+f_rep_max = 1 / T_rt = c / (2 n_g L)               (≈ 5.1 kHz);  f_rep = 0.9 f_rep_max
+B_rx      = 1 / tau_pulse
+P_noise   = P_noise_ref (B_rx / B_ref)             (noise ∝ bandwidth, Palmieri 2013)
+P_bs(z)   = P0 10^((R_bs_dB + 10 log10(tau_pulse / 1 ns))/10) 10^(-2 alpha_dB_km z / 1e4)    (z in m)
+SNR(z)    = P_bs(z) / P_noise
 ```
 
-Print the full table (name, value, unit, source) with `addpath('src'); das_params`.
+Expected at the default settings: P_bs = 61.8 / 24.6 / 9.8 nW and SNR = 34.8 / 30.8 / 26.8 dB at 0 / 10 / 20 km.
+
+### Model limitations
+
+The simulator is a **theory / system-design tool**, not a digital twin of the FEBUS A1-NEO. It does NOT model:
+
+- **Laser phase noise / finite linewidth:** `linewidth` is carried in `das_params` but unused; fibre scatterers are
+  deterministic and the source is perfectly coherent over the fibre.
+- **Polarisation:** a single polarisation state; no polarisation fading or birefringence.
+- **Modulation instability and other nonlinear effects** (the 0.1 W peak power is taken from the literature, not checked).
+- **Real interrogator internals:** the actual pulse shape/extinction ratio, amplifier (EDFA) noise and ASE, photodetector
+  and ADC characteristics, local-oscillator frequency drift, and FEBUS's own signal processing (the noise floor is a
+  single bandwidth-scaled number, `P_noise`).
+- **Frequency drift / temperature** of the laser and fibre, and slow environmental drift of the Rayleigh fingerprint.
+- **Fibre imperfections:** splices, connectors, bends, reflective events and distributed loss variations (uniform 0.2 dB/km only).
+- **Realistic strain transfer:** cable coupling to the ground, anisotropic gauge response (broadside sensitivity) and
+  dispersion; the fibre section is stretched uniformly, ΔL → phase via a constant factor `xi`.
+- **Multiple channels / multiplexing** (one 20 km channel only) and **power consumption** (`P_DAS` is carried, not used).
+- **Fading mitigation beyond the simple amplitude-weighted averaging** (no frequency-diversity or multimode combining).
+- **Real vibration spectra:** events are synthetic (sine, walking, digging, vehicle), not field recordings.
+
+### Sources
+
+1. FEBUS A1-NEO datasheet, rev. 20260618.
+2. Corning SMF-28 Ultra (G.652.D) datasheet PI-1424.
+3. Thevenaz 2025.
+4. Liu 2016.
+5. Zeng 2024.
+6. Juarez 2005.
+7. Palmieri 2013.
+8. Wang 2020.
+9. He & Liu 2021 (strain-optic coefficient).
 
 ## Results (old-device default run, folder `results/`; FEBUS run is in `results_febus/`)
 

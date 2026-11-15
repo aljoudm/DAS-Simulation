@@ -2,7 +2,7 @@
 %
 %   Run from the DAS_Sim folder by typing:  analysis
 %
-%   Four studies (choose which to run with RUN below):
+%   Five studies (choose which to run with RUN below; 5 = spatial resolution):
 %     1) gauge length   -> captured event amplitude vs noise / localization
 %     2) pulse width    -> spatial resolution vs SNR
 %     3) detector SNR   -> when does detection fail?
@@ -15,14 +15,15 @@
 clear; clc; close all;
 addpath(fullfile(fileparts(mfilename('fullpath')), 'src'));   % model functions
 
-RUN = [1 1 1 1];            % [gauge  pulse  SNR  length]  1 = run, 0 = skip
+RUN = [1 1 1 1 1];          % [gauge  pulse  SNR  length  resolution]  1 = run, 0 = skip
 
 outdir = results_dir();
+fig_style();
 if ~exist(outdir, 'dir'), mkdir(outdir); end
 nm   = 1e9;
 fid  = fopen(fullfile(outdir, 'analysis_summary.txt'), 'w');
 tAll = tic;
-S1 = []; S2 = []; S3 = []; S4 = [];
+S1 = []; S2 = []; S3 = []; S4 = []; S5 = [];
 
 %% ======================= STUDY 1: gauge length =======================
 % Simulate once, then re-process the SAME data with different gauges.
@@ -46,20 +47,23 @@ if RUN(1)
     clear Dc
     names = {ev.type};
 
-    fig = figure('Name','Study 1: gauge length','Position',[50 50 1100 430]);
-    subplot(1,2,1);
-    plot(x, S1.amp, '-o', 'LineWidth', 1.5); hold on; yline(1, 'k--');
-    grid on; xlabel('gauge length [m]'); ylabel('amplitude ratio (recovered / injected)');
-    legend(names, 'Location', 'southeast');
-    title('Captured fraction of each event');
-    subplot(1,2,2);
+    fig = figure('Position',[50 50 1000 400]);
+    tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
+    ax = nexttile;
+    plot(x, S1.amp, '-o', 'LineWidth', 1.5); hold on; yline(1, 'k--', 'HandleVisibility', 'off');
+    xlabel('gauge length [m]'); ylabel('amplitude ratio, recovered / injected [-]');
+    ylim([0 1.45]); legend(names, 'Location', 'north', 'NumColumns', 2);
+    panel_label(ax, '(a)');
+    ax = nexttile;
     yyaxis left;  plot(x, S1.bg*nm, '-o', 'LineWidth', 1.5);
-    ylabel('background activity [nm rms]');
+    ylabel('background activity [nm rms]'); ylim([0 2.5]);         % zero-based: the change is small
     yyaxis right; plot(x, mean(abs(S1.perr), 2), '-s', 'LineWidth', 1.5);
-    ylabel('mean |position error| [m]');
-    grid on; xlabel('gauge length [m]');
-    title('Noise and localization vs gauge length');
-    save_fig(fig, outdir, '07_study_gauge');
+    ylabel('mean |position error| [m]'); ylim([0 16]);
+    xlabel('gauge length [m]');
+    text(ax, 0.97, 0.05, sprintf('background changes by only %.2f nm rms over all gauges', ...
+         max(S1.bg*nm) - min(S1.bg*nm)), 'Units', 'normalized', 'HorizontalAlignment', 'right', 'FontSize', 9);
+    panel_label(ax, '(b)');
+    save_fig_hq(fig, outdir, '07_study_gauge');
     write_table(fid, 'STUDY 1: gauge length [m]', x, S1, names);
 end
 
@@ -67,7 +71,7 @@ end
 % Full re-run for every pulse width. Gauge = max(default gauge, 2 x resolution).
 if RUN(2)
     fprintf('\n######## STUDY 2: pulse width ########\n');
-    x  = das_params().tau_pulse*1e9 * [1 2 5 10 20];  % pulse widths [ns]: 1,2,5,10,20 x FEBUS pulse
+    x  = das_params().tau_pulse*1e9 * [0.2 0.5 1 2 4];  % pulse widths [ns]: 0.2..4 x FEBUS pulse
     S2 = init_S(numel(x), 4);
     S2.res = zeros(numel(x),1); S2.gauge = zeros(numel(x),1);
     for k = 1:numel(x)
@@ -88,25 +92,28 @@ if RUN(2)
     end
     names = {ev.type};
 
-    fig = figure('Name','Study 2: pulse width','Position',[50 50 1100 430]);
-    subplot(1,2,1);
+    fig = figure('Position',[50 50 1000 400]);
+    tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
+    ax = nexttile;
     yyaxis left;  plot(x, S2.res, '-o', 'LineWidth', 1.5); ylabel('spatial resolution [m]');
     yyaxis right; plot(x, S2.snr, '-s', 'LineWidth', 1.5); ylabel('median local SNR [dB]');
-    set(gca, 'XScale', 'log'); xticks(x); grid on; xlabel('pulse width [ns]');
-    title('Resolution vs SNR trade-off');
-    subplot(1,2,2);
-    yyaxis left;  plot(x, S2.fad, '-o', 'LineWidth', 1.5); ylabel('positions with SNR < 10 dB [%]');
+    set(gca, 'XScale', 'log'); xlim([x(1)/1.15, x(end)*1.15]); xticks(x); xticklabels(compose('%.1f', x));
+    xlabel('pulse width [ns]'); panel_label(ax, '(a)');
+    ax = nexttile;
+    yyaxis left;  hf = plot(x, S2.fad, '-o', 'LineWidth', 1.5); ylabel('positions with SNR < 10 dB [%]');
+    ylim([0 40]);
     yyaxis right; hc = plot(x, S2.corr, '-s', 'LineWidth', 1.4, 'MarkerSize', 5);
-    ylabel('correlation'); ylim([0 1.05]);
+    ylabel('correlation, recovered vs injected [-]'); ylim([0 1.9]); yticks(0:0.2:1);
     cols = lines(numel(hc) + 1);            % row 1 = fading curve (left axis)
     for ic = 1:numel(hc)                    % yyaxis paints every line the axis colour,
         hc(ic).Color = cols(ic + 1, :);     % so give each event its own colour
         hc(ic).MarkerFaceColor = cols(ic + 1, :);
     end
-    set(gca, 'XScale', 'log'); xticks(x); grid on; xlabel('pulse width [ns]');
-    legend([{'fading %'}, names], 'Location', 'southeast');
-    title('Fading and recovery quality vs pulse width');
-    save_fig(fig, outdir, '08_study_pulse');
+    set(gca, 'XScale', 'log'); xlim([x(1)/1.15, x(end)*1.15]); xticks(x); xticklabels(compose('%.1f', x));
+    xlabel('pulse width [ns]');
+    legend([hf; hc], [{'fading %'}, names], 'Location', 'north', 'NumColumns', 3);   % in the headroom band
+    panel_label(ax, '(b)');
+    save_fig_hq(fig, outdir, '08_study_pulse');
     write_table(fid, 'STUDY 2: pulse width [ns]', x, S2, names);
 end
 
@@ -132,18 +139,19 @@ if RUN(3)
     clear W
     names = {ev.type};
 
-    fig = figure('Name','Study 3: detector SNR','Position',[50 50 1100 430]);
-    subplot(1,2,1);
-    plot(x, S3.corr, '-o', 'LineWidth', 1.5); grid on; ylim([0 1.05]);
-    xlabel('detector SNR at fiber start [dB]'); ylabel('correlation (recovered vs injected)');
+    fig = figure('Position',[50 50 1000 400]);
+    tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
+    ax = nexttile;
+    plot(x, S3.corr, '-o', 'LineWidth', 1.5); ylim([0 1.05]);
+    xlabel('detector SNR at fiber start [dB]'); ylabel('correlation, recovered vs injected [-]');
     legend(names, 'Location', 'southeast');
-    title('Recovery quality vs detector SNR');
-    subplot(1,2,2);
-    yyaxis left;  semilogy(x, S3.bg*nm, '-o', 'LineWidth', 1.5); ylabel('background activity [nm rms]');
-    yyaxis right; plot(x, S3.fad, '-s', 'LineWidth', 1.5); ylabel('positions with SNR < 10 dB [%]');
-    grid on; xlabel('detector SNR at fiber start [dB]');
-    title('Noise floor and fading vs detector SNR');
-    save_fig(fig, outdir, '09_study_snr');
+    panel_label(ax, '(a)');
+    ax = nexttile;
+    yyaxis left;  semilogy(x, S3.bg*nm, '-o', 'LineWidth', 1.5); ylabel('background activity [nm rms]'); ylim([0.8 500]);
+    yyaxis right; plot(x, S3.fad, '-s', 'LineWidth', 1.5); ylabel('positions with SNR < 10 dB [%]'); ylim([0 115]);
+    xlabel('detector SNR at fiber start [dB]');
+    panel_label(ax, '(b)');
+    save_fig_hq(fig, outdir, '09_study_snr');
     write_table(fid, 'STUDY 3: detector SNR [dB]', x, S3, names);
 end
 
@@ -159,8 +167,10 @@ if RUN(4)
     for k = 1:numel(x)
         L  = x(k)*1e3;
         fmax = das_params(struct('L_fiber_sim', L, 'f_rep', 1)).f_rep_max;
-        ov = struct('L', L, 'Npulses', 1000, 'ev_z', L*[0.2 0.9 0.5 0.7], ...
-                    'PRF', min(f_rep0, 0.9*fmax));   % keep PRR < f_rep_max (pulses must not overlap)
+        prr  = min(f_rep0, 0.9*fmax);          % keep PRR < f_rep_max (pulses must not overlap)
+        npls = 2*round(das_params().T_rec_target*prr/2);   % same ~2 s record as main: all events (dig at 0.3 s) inside
+        ov = struct('L', L, 'Npulses', npls, 'ev_z', L*[0.2 0.9 0.5 0.7], ...
+                    'PRF', prr);
         P  = params(ov);
         F  = fiber_model(P);
         ev = define_events(P);
@@ -177,24 +187,68 @@ if RUN(4)
     end
     names = {ev.type};
 
-    fig = figure('Name','Study 4: fiber length','Position',[50 50 1100 430]);
-    subplot(1,2,1);
-    yyaxis left;  plot(x, S4.snr, '-o', 'LineWidth', 1.5); ylabel('median SNR, last 15 % [dB]');
-    yyaxis right; plot(x, S4.prf_max/1e3, '-s', 'LineWidth', 1.5); ylabel('max PRF [kHz]');
-    grid on; xlabel('fiber length [km]');
-    title('Far-end SNR and maximum PRF vs length');
-    subplot(1,2,2);
-    plot(x, S4.corr, '-o', 'LineWidth', 1.5); grid on; ylim([0 1.05]);
-    xlabel('fiber length [km]'); ylabel('correlation (recovered vs injected)');
+    fig = figure('Position',[50 50 1000 400]);
+    tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
+    ax = nexttile;
+    yyaxis left;  plot(x, S4.snr, '-o', 'LineWidth', 1.5); ylabel('median SNR, last 15 % of fibre [dB]'); ylim([20 34]);
+    yyaxis right; plot(x, S4.prf_max/1e3, '-s', 'LineWidth', 1.5); ylabel('max PRF [kHz]'); ylim([2 24]);
+    xlabel('fiber length [km]'); panel_label(ax, '(a)');
+    ax = nexttile;
+    stl = {'-o', '-s', '--^', ':d'};  msz = [9 8 7 6];  lw = [1.5 1.5 2 2.2];   % overlapping curves stay distinguishable
+    cl  = lines(4);  hold on;
+    for k = 1:4
+        plot(x, S4.corr(:, k), stl{k}, 'Color', cl(k, :), 'LineWidth', lw(k), 'MarkerSize', msz(k));
+    end
+    ylim([0.75 1.05]);          % zoomed: all curves are near 1 (axis starts at 0.75)
+    xlabel('fiber length [km]'); ylabel('correlation, recovered vs injected [-]');
     legend(strcat(names, {' @0.2L',' @0.9L',' @0.5L',' @0.7L'}), 'Location', 'southwest');
-    title('Recovery quality vs fiber length');
-    save_fig(fig, outdir, '10_study_length');
+    panel_label(ax, '(b)');
+    save_fig_hq(fig, outdir, '10_study_length');
     write_table(fid, 'STUDY 4: fiber length [km] (bg/fading/SNR at far end)', x, S4, names);
 end
 
 %% ======================= save =======================
+%% ======================= STUDY 5: spatial resolution dz_res =======================
+% Full re-run for dz_res = 2, 5, 10, 20 m (pulse width follows: tau = 2 n_g dz_res / c;
+% noise follows B_rx = 1/tau). Gauge = max(default gauge, 2 x resolution).
+if RUN(5)
+    fprintf('\n######## STUDY 5: spatial resolution ########\n');
+    x  = [2 5 10 20];                           % spatial resolution [m]
+    S5 = init_S(numel(x), 4);
+    for k = 1:numel(x)
+        ov       = struct('dz_res', x(k));
+        P0       = params(ov);
+        ov.gauge = max(P0.gauge, 2*P0.dz_res);
+        P        = params(ov);
+        F  = fiber_model(P);
+        ev = define_events(P);
+        W  = simulate_waterfall(P, F, ev);
+        Dc = detector(P, W, 'coherent');
+        [fad, snr] = fading_metrics(W, Dc, true(P.Nz,1));
+        clear W
+        R  = process_das(P, Dc);  clear Dc
+        S5 = store(S5, k, event_metrics(ev, R), fad, snr);
+        clear R
+    end
+    names = {ev.type};
+
+    fig = figure('Position',[50 50 1000 400]);
+    tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
+    ax = nexttile;
+    yyaxis left;  plot(x, S5.snr, '-o', 'LineWidth', 1.5); ylabel('median local SNR [dB]');
+    yyaxis right; plot(x, S5.fad, '-s', 'LineWidth', 1.5); ylabel('positions with SNR < 10 dB [%]');
+    xticks(x); xlabel('spatial resolution \Deltaz [m]'); panel_label(ax, '(a)');
+    ax = nexttile;
+    plot(x, S5.corr, '-o', 'LineWidth', 1.5); ylim([-0.1 1.05]);
+    xticks(x); xlabel('spatial resolution \Deltaz [m]');
+    ylabel('correlation with injected signal [-]');
+    legend(names, 'Location', 'southeast'); panel_label(ax, '(b)');
+    save_fig_hq(fig, outdir, '13_study_resolution');     % png 300 dpi + pdf, no title
+    write_table(fid, 'STUDY 5: spatial resolution dz_res [m]', x, S5, names);
+end
+
 fclose(fid);
-save(fullfile(outdir, 'analysis.mat'), 'S1', 'S2', 'S3', 'S4');
+save(fullfile(outdir, 'analysis.mat'), 'S1', 'S2', 'S3', 'S4', 'S5');
 fprintf('\nAnalysis done in %.0f s. Results in folder "%s"\n', toc(tAll), outdir);
 
 %% ======================= local functions =======================
@@ -249,11 +303,3 @@ function write_table(fid, ttl, x, S, names)
     end
 end
 
-function save_fig(fig, outdir, name)
-    file = fullfile(outdir, [name '.png']);
-    try
-        exportgraphics(fig, file, 'Resolution', 200);
-    catch
-        print(fig, file, '-dpng', '-r200');
-    end
-end

@@ -6,7 +6,7 @@ function Dt = detector(P, W, mode)
 %   Dt = detector(P, W, 'direct')    measures power only, |E|^2
 %
 %   Noise model:
-%     P.SNR_dB is defined at the fiber start, relative to the MEAN
+%     The noise power is P.P_noise (from das_params); P.SNR_dB is the resulting SNR at the fiber start, relative to the MEAN
 %     backscattered power P_bs0. The noise level is the same for every
 %     sample, so the LOCAL SNR drops with attenuation and collapses at
 %     fading points (where |E| is close to zero).
@@ -22,12 +22,9 @@ function Dt = detector(P, W, mode)
 
 if nargin < 3, mode = 'coherent'; end
 
-% Noise is a property of the DETECTOR, not of the pulse: it is fixed by the
-% backscatter of a reference pulse (tau_ref). A longer pulse then gives
-% more signal over the same noise, i.e. a higher SNR.
-if isfield(P, 'tau_ref'), tau_ref = P.tau_ref; else, tau_ref = P.tau; end
-P_ref     = P.P0 * P.S * P.alpha_s * (P.vg * tau_ref / 2);
-Dt.sigma2 = P_ref / 10^(P.SNR_dB/10);
+% Noise is a property of the DETECTOR (das_params: P_noise = P_noise_ref*B_rx/B_ref,
+% B_rx = 1/tau; Palmieri 2013), NOT a fixed SNR. SNR then follows from signal power.
+Dt.sigma2 = P.P_noise;
 Dt.mode   = lower(mode);
 Dt.z      = W.z;
 Dt.t      = W.t;
